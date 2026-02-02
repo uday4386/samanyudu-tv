@@ -10,7 +10,7 @@ export default defineConfig({
     alias: {
       'figma:asset/3ce6d60c8f95ee9461d1c6abe596da515e9a5a56.png': path.resolve(__dirname, './src/assets/3ce6d60c8f95ee9461d1c6abe596da515e9a5a56.png'),
       '@': path.resolve(__dirname, './src'),
-      '@': path.resolve(__dirname, './src'),
+
     },
   },
   build: {
