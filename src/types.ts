@@ -12,6 +12,7 @@ export interface NewsItem {
     timestamp: string;
     author?: string;
     status?: 'published' | 'pending' | 'rejected';
+    likes?: number; // Optional until DB is updated
 }
 
 export interface ShortItem {
@@ -20,4 +21,5 @@ export interface ShortItem {
     videoUrl: string; // DB: video_url
     duration: number;
     timestamp: string;
+    likes?: number; // Optional until DB is updated
 }

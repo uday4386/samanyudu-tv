@@ -256,34 +256,71 @@ const SettingsView = () => {
   );
 }
 
+const useItemInteractions = (item: NewsItem | ShortItem) => {
+  const [liked, setLiked] = useState(() => {
+    return localStorage.getItem(`like_${item.id}`) === 'true';
+  });
+  const [saved, setSaved] = useState(() => {
+    return localStorage.getItem(`saved_${item.id}`) === 'true';
+  });
+  // Initialize count from prop (if exists) or default to 0
+  const [initialCount] = useState(item.likes || 0);
+  const [likeCount, setLikeCount] = useState(initialCount + (liked ? 1 : 0));
+
+  useEffect(() => {
+    setLikeCount(initialCount + (liked ? 1 : 0));
+    localStorage.setItem(`like_${item.id}`, liked.toString());
+  }, [liked, initialCount, item.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`saved_${item.id}`, saved.toString());
+  }, [saved, item.id]);
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLiked(!liked);
+    // In a real app, send API request here
+  };
+
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSaved(!saved);
+    toast.success(saved ? "Removed from Saved" : "Saved to your list");
+  };
+
+  const shareTitle = 'title' in item ? item.title : 'Check this out';
+  const shareText = `Check this out on Samanyudu TV: ${shareTitle}`;
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: window.location.href, // In real app, deep link
+        });
+      } catch (error) {
+        console.log("Share cancelled/failed", error);
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copied to clipboard");
+    }
+  };
+
+  return { liked, saved, likeCount, handleLike, handleSave, handleShare };
+};
+
 const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: () => void }) => {
   const isShort = 'duration' in item;
 
   // --- SHORT VIDEO PLAYER (Vertical) ---
   if (isShort) {
     const shortItem = item as ShortItem;
-    const [liked, setLiked] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [likeCount, setLikeCount] = useState(Math.floor(Math.random() * 500) + 10); // Simulated count
+    const { liked, saved, likeCount, handleLike, handleSave, handleShare } = useItemInteractions(shortItem);
 
-    const handleLike = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setLiked(!liked);
-      setLikeCount(prev => liked ? prev - 1 : prev + 1);
-      if (!liked) toast.success("Liked short!");
-    };
 
-    const handleSave = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setSaved(!saved);
-      toast.success(saved ? "Removed from saved" : "Saved to your list");
-    };
-
-    const handleShare = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      navigator.clipboard.writeText(shortItem.videoUrl || window.location.href);
-      toast.success("Link copied to clipboard");
-    };
 
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={onClose}>
@@ -307,6 +344,9 @@ const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: (
                 loop
                 autoPlay
                 playsInline
+                // muted // Auto-play usually requires muted, but user likely wants sound.
+                // Mobile browsers often block unmuted autoplay.
+                // We'll leave unmuted but be aware it might not autoplay without interaction.
                 onClick={(e) => {
                   const v = e.currentTarget;
                   if (v.paused) v.play(); else v.pause();
@@ -334,37 +374,87 @@ const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: (
                 Your browser does not support the video tag.
               </video>
 
-              {/* Interaction Overlay */}
-              <div className="absolute right-2 bottom-20 flex flex-col items-center gap-6 z-20">
-                <button onClick={handleLike} className="flex flex-col items-center gap-1 group">
-                  <div className={`p-3 rounded-full bg-black/40 backdrop-blur-md border border-white/10 transition-transform active:scale-95 ${liked ? 'text-red-500' : 'text-white'}`}>
-                    <Heart size={28} fill={liked ? "currentColor" : "none"} strokeWidth={2} />
-                  </div>
-                  <span className="text-white text-xs font-medium shadow-black drop-shadow-md">{likeCount}</span>
+              {/* Interaction Overlay - Right Side Actions */}
+              <div className="absolute right-3 bottom-12 flex flex-col items-center gap-6 z-20 pb-4">
+                {/* Like Button */}
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={handleLike}
+                    className="group relative transition-transform active:scale-90"
+                  >
+                    <Heart
+                      size={32}
+                      className={`drop-shadow-lg transition-colors ${liked ? "fill-red-500 text-red-500" : "text-white fill-transparent stroke-[2px]"}`}
+                    />
+                  </button>
+                  <span className="text-white text-[13px] font-medium drop-shadow-md">{likeCount}</span>
+                </div>
+
+                {/* Share Button (Paper Plane style usually, using Share2 here) */}
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={handleShare}
+                    className="group transition-transform active:scale-90"
+                  >
+                    <Share2 size={30} className="text-white drop-shadow-lg stroke-[2px]" />
+                  </button>
+                  <span className="text-white text-[13px] font-medium drop-shadow-md">Share</span>
+                </div>
+
+                {/* Save/Bookmark Button */}
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={handleSave}
+                    className="group transition-transform active:scale-90"
+                  >
+                    <Bookmark
+                      size={30}
+                      className={`drop-shadow-lg transition-colors stroke-[2px] ${saved ? "fill-white text-white" : "text-white fill-transparent"}`}
+                    />
+                  </button>
+                  <span className="text-white text-[13px] font-medium drop-shadow-md">Save</span>
+                </div>
+
+                {/* More/Menu Option (Visual placeholder to match style) */}
+                <button className="mt-2 transition-transform active:scale-90 opacity-90 hover:opacity-100">
+                  <MoreVertical size={28} className="text-white drop-shadow-lg" />
                 </button>
 
-                <button onClick={handleShare} className="flex flex-col items-center gap-1 group">
-                  <div className="p-3 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-black/60 transition-colors active:scale-95">
-                    <Share2 size={28} strokeWidth={2} />
+                {/* Music/Sound Icon (Visual flair) */}
+                <div className="mt-4 w-10 h-10 rounded-lg bg-gradient-to-tr from-yellow-400 to-yellow-600 border-2 border-white overflow-hidden animate-spin-slow shadow-lg">
+                  <div className="w-full h-full flex items-center justify-center bg-black/20">
+                    <Volume2 size={16} className="text-white" />
                   </div>
-                  <span className="text-white text-xs font-medium shadow-black drop-shadow-md">Share</span>
-                </button>
-
-                <button onClick={handleSave} className="flex flex-col items-center gap-1 group">
-                  <div className={`p-3 rounded-full bg-black/40 backdrop-blur-md border border-white/10 transition-colors active:scale-95 ${saved ? 'text-yellow-500' : 'text-white'}`}>
-                    <Bookmark size={28} fill={saved ? "currentColor" : "none"} strokeWidth={2} />
-                  </div>
-                  <span className="text-white text-xs font-medium shadow-black drop-shadow-md">Save</span>
-                </button>
+                </div>
               </div>
 
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-6 pointer-events-none z-10">
-                <div className="pr-16">
-                  <h3 className="text-white font-bold text-lg line-clamp-2 leading-tight mb-2">{shortItem.title}</h3>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-[10px] font-bold text-black border border-white">ST</div>
-                    <span className="text-sm text-white/90 font-medium">Samanyudu TV</span>
-                    <button className="px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold rounded-md ml-2 pointer-events-auto backdrop-blur-sm transition-colors border border-white/10">Subscribe</button>
+              {/* Bottom Info Overlay */}
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pb-6 pointer-events-none z-10">
+                <div className="flex flex-col items-start gap-3 w-[80%]">
+
+                  {/* Profile Line */}
+                  <div className="flex items-center gap-3 pointer-events-auto cursor-pointer">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 border border-white p-0.5 overflow-hidden">
+                      <img src={logoImage} className="w-full h-full object-cover rounded-full" alt="Profile" />
+                    </div>
+                    <div className="flex flex-col align-start">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-bold text-sm tracking-wide shadow-black drop-shadow-md">samanyudu.tv</span>
+                        <CheckCircle2 size={12} className="text-blue-400 bg-white rounded-full" />
+                      </div>
+                      <span className="text-xs text-slate-200 opacity-90 drop-shadow-md">Original Audio</span>
+                    </div>
+                    <button className="ml-2 px-3 py-1 bg-transparent border border-white/40 text-white hover:bg-white/20 text-xs font-semibold rounded-lg transition-colors backdrop-blur-sm">
+                      Follow
+                    </button>
+                  </div>
+
+                  {/* Caption */}
+                  <div className="pointer-events-auto">
+                    <p className="text-white text-[15px] leading-snug drop-shadow-md line-clamp-2">
+                      {shortItem.title}
+                      <span className="text-slate-300 ml-2 text-sm font-normal">... more</span>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -382,12 +472,14 @@ const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: (
 
   // --- NEWS ARTICLE VIEWER ---
   const newsItem = item as NewsItem;
+  const { liked, saved, likeCount, handleLike, handleSave, handleShare } = useItemInteractions(newsItem);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-slate-900 w-full max-w-2xl max-h-[90vh] rounded-xl border border-slate-700 shadow-2xl overflow-y-auto relative"
+        className="bg-slate-900 w-full max-w-2xl max-h-[90vh] rounded-xl border border-slate-700 shadow-2xl overflow-y-auto relative flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header / Media Area */}
@@ -426,6 +518,23 @@ const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: (
 
         {/* Content Area */}
         <div className="p-6 bg-slate-900">
+          {/* News Interactions Bar (Moved here) */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+            <div className="flex items-center gap-2">
+              <button onClick={handleLike} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-sm font-medium ${liked ? 'bg-red-500/10 text-red-500' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700'}`}>
+                <Heart size={16} fill={liked ? "currentColor" : "none"} />
+                <span>{likeCount > 0 ? likeCount : 'Like'}</span>
+              </button>
+              <button onClick={handleShare} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white transition-colors border border-slate-700 text-sm font-medium">
+                <Share2 size={16} />
+                <span>Share</span>
+              </button>
+            </div>
+            <button onClick={handleSave} className={`p-1.5 rounded-full transition-colors border border-slate-700 ${saved ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/50' : 'text-slate-400 hover:text-white hover:bg-slate-800 bg-slate-800'}`}>
+              <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
+            </button>
+          </div>
+
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-yellow-500 text-slate-900 uppercase tracking-wide">
               {newsItem.type}
@@ -449,9 +558,11 @@ const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: (
             {newsItem.title}
           </h2>
 
-          <div className="text-slate-300 leading-relaxed whitespace-pre-wrap text-base md:text-base">
+          <div className="text-slate-300 leading-relaxed whitespace-pre-wrap text-base md:text-base border-b border-slate-800 pb-6 mb-4">
             {newsItem.description}
           </div>
+
+
         </div>
       </motion.div>
     </div>
@@ -1443,8 +1554,65 @@ const NewsApprovalManager = ({ pendingNews, setPendingNews, setNews }: { pending
 
 // --- App Preview Component ---
 
+// --- REUSABLE SHORT CARD FOR APP PREVIEW ---
+const ShortCard = ({ short, onViewItem }: { short: ShortItem, onViewItem: (item: ShortItem) => void }) => {
+  const { liked, saved, likeCount, handleLike, handleShare } = useItemInteractions(short);
+
+  return (
+    <div
+      onClick={() => onViewItem(short)}
+      className="shrink-0 w-48 aspect-[9/16] bg-slate-800 rounded-lg overflow-hidden relative border border-slate-700 shadow-md group cursor-pointer hover:border-yellow-500/50 transition-colors"
+    >
+      <div className="absolute inset-0 bg-slate-700 flex items-center justify-center group-hover:bg-slate-700/50 transition-colors">
+        {short.videoUrl ? (
+          <video
+            src={short.videoUrl}
+            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+            muted
+            playsInline
+            onMouseOver={e => e.currentTarget.play()}
+            onMouseOut={e => {
+              e.currentTarget.pause();
+              e.currentTarget.currentTime = 0;
+            }}
+          />
+        ) : (
+          <Video size={32} className="text-slate-500 group-hover:text-yellow-500 transition-colors" />
+        )}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 pt-10 flex flex-col justify-end">
+        <p className="text-white text-sm font-medium line-clamp-2 leading-tight mb-2">{short.title}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-400">{short.duration}s</span>
+          <div className="flex items-center gap-1">
+            <button
+              className={`p-1.5 rounded-full backdrop-blur-sm transition-colors ${liked ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+              onClick={handleLike}
+            >
+              <Heart size={14} fill={liked ? "currentColor" : "none"} />
+            </button>
+            <span className="text-[10px] text-white font-medium">{likeCount}</span>
+          </div>
+          <button
+            className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm"
+            onClick={handleShare}
+          >
+            <Share2 size={14} />
+          </button>
+        </div>
+      </div>
+      {/* Saved Indicator */}
+      {saved && (
+        <div className="absolute top-2 right-2 bg-yellow-500 text-slate-900 p-1 rounded-full shadow-lg z-10">
+          <Bookmark size={12} fill="currentColor" />
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: ShortItem[], onViewItem: (item: NewsItem | ShortItem) => void }) => {
-  const [subTab, setSubTab] = useState<'home' | 'categories'>('home');
+  const [subTab, setSubTab] = useState<'home' | 'categories' | 'saved'>('home');
 
   // Group news by type for the home view
   const groupedNews = news.reduce((acc, item) => {
@@ -1474,6 +1642,12 @@ const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: Sh
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'categories' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
           >
             Categories
+          </button>
+          <button
+            onClick={() => setSubTab('saved')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'saved' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
+          >
+            Saved
           </button>
         </div>
       </div>
@@ -1536,25 +1710,7 @@ const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: Sh
               </h3>
               <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
                 {shorts.map(short => (
-                  <div key={short.id} onClick={() => onViewItem(short)} className="shrink-0 w-48 aspect-[9/16] bg-slate-800 rounded-lg overflow-hidden relative border border-slate-700 shadow-md group cursor-pointer hover:border-yellow-500/50 transition-colors">
-                    <div className="absolute inset-0 bg-slate-700 flex items-center justify-center group-hover:bg-slate-700/50 transition-colors">
-                      <Video size={32} className="text-slate-500 group-hover:text-yellow-500 transition-colors" />
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 pt-10 flex flex-col justify-end">
-                      <p className="text-white text-sm font-medium line-clamp-2 leading-tight mb-2">{short.title}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-400">{short.duration}s</span>
-                        <div className="flex gap-2">
-                          <button className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); toast.success("Liked!"); }}>
-                            <Heart size={14} />
-                          </button>
-                          <button className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); toast.success("Shared!"); }}>
-                            <Share2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <ShortCard key={short.id} short={short} onViewItem={onViewItem} />
                 ))}
                 {shorts.length === 0 && (
                   <div className="text-slate-500 italic px-4 py-8 w-full text-center bg-slate-800/30 rounded-lg border border-dashed border-slate-800">
