@@ -34,7 +34,9 @@ import {
   LayoutGrid,
   Calendar,
   BarChart2,
-  Database
+  Database,
+  Globe,
+  Map
 } from 'lucide-react';
 import {
   BarChart,
@@ -1612,7 +1614,7 @@ const ShortCard = ({ short, onViewItem }: { short: ShortItem, onViewItem: (item:
 };
 
 const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: ShortItem[], onViewItem: (item: NewsItem | ShortItem) => void }) => {
-  const [subTab, setSubTab] = useState<'home' | 'categories' | 'saved'>('home');
+  const [subTab, setSubTab] = useState<'home' | 'categories' | 'shorts' | 'profile'>('home');
 
   // Group news by type for the home view
   const groupedNews = news.reduce((acc, item) => {
@@ -1627,88 +1629,145 @@ const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: Sh
   const categories = Array.from(new Set(news.map(n => n.type)));
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">User App Content</h2>
-        <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
-          <button
-            onClick={() => setSubTab('home')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'home' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
-          >
-            Home
-          </button>
-          <button
-            onClick={() => setSubTab('categories')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'categories' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
-          >
-            Categories
-          </button>
-          <button
-            onClick={() => setSubTab('saved')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'saved' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
-          >
-            Saved
-          </button>
+    <div className="flex justify-center py-10 bg-slate-900/30 rounded-xl border border-slate-800 overflow-hidden">
+      {/* Mobile Device Emulator Frame */}
+      <div className="relative w-[375px] h-[812px] bg-black rounded-[3rem] border-[14px] border-slate-800 shadow-[20px_20px_60px_rgba(0,0,0,0.8)] overflow-hidden ring-1 ring-slate-700/50 mx-auto transform origin-top md:scale-100 sm:scale-[0.85] scale-[0.70]">
+
+        {/* Hardware Notch */}
+        <div className="absolute top-0 inset-x-0 h-7 bg-slate-800 rounded-b-3xl w-40 mx-auto z-[60] flex justify-center items-center">
+          <div className="w-16 h-1.5 bg-slate-950 rounded-full"></div>
+          <div className="w-2 h-2 bg-blue-900/40 rounded-full ml-2"></div>
         </div>
-      </div>
 
-      <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-6 min-h-[600px]">
-        {subTab === 'home' ? (
-          <div className="space-y-6">
-            {/* App Header: Admin, Weather, Notifications */}
-            <div className="flex items-center justify-between bg-[#048ABF] p-4 rounded-xl border border-slate-700 backdrop-blur-sm shadow-lg shadow-blue-900/20">
-              {/* Left: Admin Profile */}
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-slate-900 shadow-lg">
-                  <UserCircle size={24} />
+        {/* Screen Content Wrapper */}
+        <div className="h-full w-full bg-[#020617] relative z-30 pt-10">
+          {/* Scrollable Content Area */}
+          <div className="absolute inset-0 pt-10 px-4 pb-24 overflow-y-auto custom-scrollbar">
+            {subTab === 'home' && (
+              <div className="space-y-6">
+                {/* App Header: Admin, Weather, Notifications */}
+                <div className="flex items-center justify-between bg-[#048ABF] p-4 rounded-xl border border-slate-700 backdrop-blur-sm shadow-lg shadow-blue-900/20">
+                  {/* Left: Admin Profile */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-slate-900 shadow-lg">
+                      <UserCircle size={24} />
+                    </div>
+                    <div>
+                      <p className="text-white text-sm font-bold leading-none">Admin</p>
+                      <span className="text-[10px] text-yellow-500 font-medium bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 mt-1 inline-block">VERIFIED</span>
+                    </div>
+                  </div>
+
+                  {/* Center: Weather Widget */}
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-center gap-2 text-white">
+                      <CloudSun size={24} className="text-yellow-400" />
+                      <span className="font-bold text-xl">28°C</span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium">Vijayawada</p>
+                  </div>
+
+                  {/* Right: Notifications */}
+                  <button className="relative p-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-full transition-all hover:scale-105 active:scale-95 border border-slate-600">
+                    <Bell size={20} />
+                    <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-slate-800 rounded-full animate-pulse"></span>
+                  </button>
                 </div>
+
+                {/* Breaking News Ticker */}
+                {news.some(n => n.isBreaking) && (
+                  <div className="bg-red-600 text-white px-4 py-2 text-sm font-bold flex items-center gap-4 overflow-hidden rounded-lg shadow-lg shadow-red-900/20">
+                    <span className="bg-white text-red-600 px-2 py-0.5 text-xs rounded uppercase tracking-wider animate-pulse font-bold shrink-0">Breaking News</span>
+                    <div className="animate-marquee whitespace-nowrap overflow-hidden flex items-center gap-4">
+                      {news.filter(n => n.isBreaking).map((n, index) => (
+                        <span
+                          key={n.id}
+                          onClick={() => onViewItem(n)}
+                          className="cursor-pointer hover:underline hover:text-white/90 transition-colors inline-flex items-center"
+                        >
+                          {n.title}
+                          {index < news.filter(n => n.isBreaking).length - 1 && <span className="mx-4 text-red-200 opacity-50">•</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Shorts Section */}
                 <div>
-                  <p className="text-white text-sm font-bold leading-none">Admin</p>
-                  <span className="text-[10px] text-yellow-500 font-medium bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 mt-1 inline-block">VERIFIED</span>
+                  <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <Film size={20} className="text-yellow-500" /> Shorts & Reels
+                  </h3>
+                  <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                    {shorts.map(short => (
+                      <ShortCard key={short.id} short={short} onViewItem={onViewItem} />
+                    ))}
+                    {shorts.length === 0 && (
+                      <div className="text-slate-500 italic px-4 py-8 w-full text-center bg-slate-800/30 rounded-lg border border-dashed border-slate-800">
+                        No shorts available currently.
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Center: Weather Widget */}
-              <div className="flex flex-col items-center">
-                <div className="flex items-center gap-2 text-white">
-                  <CloudSun size={24} className="text-yellow-400" />
-                  <span className="font-bold text-xl">28°C</span>
-                </div>
-                <p className="text-xs text-slate-400 font-medium">Vijayawada</p>
-              </div>
-
-              {/* Right: Notifications */}
-              <button className="relative p-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-full transition-all hover:scale-105 active:scale-95 border border-slate-600">
-                <Bell size={20} />
-                <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-slate-800 rounded-full animate-pulse"></span>
-              </button>
-            </div>
-
-            {/* Breaking News Ticker */}
-            {news.some(n => n.isBreaking) && (
-              <div className="bg-red-600 text-white px-4 py-2 text-sm font-bold flex items-center gap-4 overflow-hidden rounded-lg shadow-lg shadow-red-900/20">
-                <span className="bg-white text-red-600 px-2 py-0.5 text-xs rounded uppercase tracking-wider animate-pulse font-bold shrink-0">Breaking News</span>
-                <div className="animate-marquee whitespace-nowrap overflow-hidden flex items-center gap-4">
-                  {news.filter(n => n.isBreaking).map((n, index) => (
-                    <span
-                      key={n.id}
-                      onClick={() => onViewItem(n)}
-                      className="cursor-pointer hover:underline hover:text-white/90 transition-colors inline-flex items-center"
-                    >
-                      {n.title}
-                      {index < news.filter(n => n.isBreaking).length - 1 && <span className="mx-4 text-red-200 opacity-50">•</span>}
-                    </span>
+                {/* News Categories */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {Object.entries(groupedNews).map(([category, items]) => (
+                    <div key={category} className="space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 className="text-white font-bold text-xl capitalize border-l-4 border-yellow-500 pl-3">{category}</h3>
+                        <button className="text-sm text-yellow-500 font-medium hover:text-yellow-400">View All</button>
+                      </div>
+                      <div className="space-y-4">
+                        {items.slice(0, 3).map(item => (
+                          <div key={item.id} onClick={() => onViewItem(item)} className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-sm flex h-28 hover:border-slate-600 transition-colors cursor-pointer">
+                            <div className="w-32 h-full bg-slate-700 relative shrink-0">
+                              {item.imageUrl && <img src={item.imageUrl} className="w-full h-full object-cover" alt="" />}
+                            </div>
+                            <div className="p-3 flex flex-col justify-between flex-1">
+                              <div>
+                                <h4 className="text-white font-semibold text-base line-clamp-2 leading-tight mb-1">{item.title}</h4>
+                                <p className="text-slate-400 text-xs line-clamp-1">{item.description}</p>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
+                                <span className="bg-slate-700/50 px-1.5 py-0.5 rounded">{item.area}</span>
+                                <span>•</span>
+                                <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
+            {subTab === 'categories' && (
+              <div className="grid grid-cols-2 gap-4">
+                {categories.map(cat => (
+                  <div key={cat} className="aspect-square bg-slate-800 border border-slate-700 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-yellow-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group shadow-lg">
+                    <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:bg-yellow-500/10 transition-colors">
+                      <Newspaper className="text-slate-400 group-hover:text-yellow-500" size={24} />
+                    </div>
+                    <div className="text-center">
+                      <span className="block text-white font-bold text-base">{cat}</span>
+                      <span className="text-xs text-slate-500">{groupedNews[cat]?.length || 0} articles</span>
+                    </div>
+                  </div>
+                ))}
+                {categories.length === 0 && (
+                  <div className="col-span-full text-center text-slate-500 py-20 flex flex-col items-center">
+                    <Filter size={48} className="opacity-20 mb-4" />
+                    <p>No categories found.</p>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Shorts Section */}
-            <div>
-              <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
-                <Film size={20} className="text-yellow-500" /> Shorts & Reels
-              </h3>
-              <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+            {subTab === 'shorts' && (
+              <div className="grid grid-cols-1 gap-4">
+                <h3 className="text-xl font-bold text-white mb-2">Shorts</h3>
                 {shorts.map(short => (
                   <ShortCard key={short.id} short={short} onViewItem={onViewItem} />
                 ))}
@@ -1718,61 +1777,57 @@ const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: Sh
                   </div>
                 )}
               </div>
-            </div>
+            )}
 
-            {/* News Categories */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {Object.entries(groupedNews).map(([category, items]) => (
-                <div key={category} className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <h3 className="text-white font-bold text-xl capitalize border-l-4 border-yellow-500 pl-3">{category}</h3>
-                    <button className="text-sm text-yellow-500 font-medium hover:text-yellow-400">View All</button>
+            {subTab === 'profile' && (
+              <div className="flex flex-col items-center pt-8 space-y-4">
+                <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg text-slate-900">
+                  <UserCircle size={64} />
+                </div>
+                <h3 className="text-2xl font-bold text-white">Guest User</h3>
+                <div className="w-full bg-slate-800 rounded-xl p-4 mt-6 border border-slate-700">
+                  <h4 className="text-slate-400 text-sm font-semibold mb-3 border-b border-slate-700 pb-2">Preferences</h4>
+                  <div className="flex items-center justify-between py-2 text-white">
+                    <span>Language</span>
+                    <span className="text-slate-400">English</span>
                   </div>
-                  <div className="space-y-4">
-                    {items.slice(0, 3).map(item => (
-                      <div key={item.id} onClick={() => onViewItem(item)} className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-sm flex h-28 hover:border-slate-600 transition-colors cursor-pointer">
-                        <div className="w-32 h-full bg-slate-700 relative shrink-0">
-                          {item.imageUrl && <img src={item.imageUrl} className="w-full h-full object-cover" alt="" />}
-                        </div>
-                        <div className="p-3 flex flex-col justify-between flex-1">
-                          <div>
-                            <h4 className="text-white font-semibold text-base line-clamp-2 leading-tight mb-1">{item.title}</h4>
-                            <p className="text-slate-400 text-xs line-clamp-1">{item.description}</p>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
-                            <span className="bg-slate-700/50 px-1.5 py-0.5 rounded">{item.area}</span>
-                            <span>•</span>
-                            <span>{new Date(item.timestamp).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between py-2 text-white">
+                    <span>Location</span>
+                    <span className="text-slate-400">Vijayawada</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {categories.map(cat => (
-              <div key={cat} className="aspect-square bg-slate-800 border border-slate-700 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-yellow-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group shadow-lg">
-                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:bg-yellow-500/10 transition-colors">
-                  <Newspaper className="text-slate-400 group-hover:text-yellow-500" size={24} />
-                </div>
-                <div className="text-center">
-                  <span className="block text-white font-bold text-base">{cat}</span>
-                  <span className="text-xs text-slate-500">{groupedNews[cat]?.length || 0} articles</span>
-                </div>
-              </div>
-            ))}
-            {categories.length === 0 && (
-              <div className="col-span-full text-center text-slate-500 py-20 flex flex-col items-center">
-                <Filter size={48} className="opacity-20 mb-4" />
-                <p>No categories found.</p>
               </div>
             )}
+
           </div>
-        )}
+
+          {/* Bottom Navigation Bar */}
+          <div className="absolute bottom-0 inset-x-0 bg-[#0f172a] border-t border-slate-700 pb-8 pt-3 px-6 z-50 rounded-b-[2rem]">
+            <div className="flex justify-between items-center bg-transparent">
+              <button onClick={() => setSubTab('home')} className={`flex flex-col items-center gap-1 transition-colors ${subTab === 'home' ? 'text-yellow-500' : 'text-slate-400 hover:text-slate-300'}`}>
+                <LayoutDashboard size={24} />
+                <span className="text-[10px] font-medium">Home</span>
+              </button>
+              <button onClick={() => setSubTab('categories')} className={`flex flex-col items-center gap-1 transition-colors ${subTab === 'categories' ? 'text-yellow-500' : 'text-slate-400 hover:text-slate-300'}`}>
+                <LayoutList size={24} />
+                <span className="text-[10px] font-medium">Categories</span>
+              </button>
+              <button onClick={() => setSubTab('shorts')} className="relative -top-5">
+                <div className={`bg-yellow-500 rounded-full p-4 shadow-lg shadow-yellow-500/20 text-slate-900 ${subTab === 'shorts' ? 'ring-4 ring-yellow-500/30' : ''}`}>
+                  <Film size={26} fill="currentColor" />
+                </div>
+              </button>
+              <button className={`flex flex-col items-center gap-1 transition-colors text-slate-400 hover:text-slate-300`}>
+                <Globe size={24} />
+                <span className="text-[10px] font-medium">Language</span>
+              </button>
+              <button onClick={() => setSubTab('profile')} className={`flex flex-col items-center gap-1 transition-colors ${subTab === 'profile' ? 'text-yellow-500' : 'text-slate-400 hover:text-slate-300'}`}>
+                <UserCircle size={24} />
+                <span className="text-[10px] font-medium">Profile</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
