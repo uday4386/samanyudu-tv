@@ -138,6 +138,80 @@ export const api = {
         if (error) throw error;
     },
 
+    // --- ADVERTISEMENTS ---
+    async getAdvertisements() {
+        const { data, error } = await supabase
+            .from('advertisements')
+            .select('*')
+            .order('timestamp', { ascending: false });
+
+        if (error) throw error;
+
+        return (data || []).map((item: any) => ({
+            id: item.id,
+            mediaUrl: item.media_url,
+            intervalMinutes: item.interval_minutes,
+            clickUrl: item.click_url,
+            isActive: item.is_active,
+            timestamp: item.timestamp
+        }));
+    },
+
+    async createAdvertisement(ad: Omit<any, 'id' | 'timestamp'>) {
+        const { data, error } = await supabase
+            .from('advertisements')
+            .insert({
+                media_url: ad.mediaUrl,
+                interval_minutes: ad.intervalMinutes,
+                click_url: ad.clickUrl,
+                is_active: ad.isActive,
+            })
+            .select()
+            .single();
+        if (error) throw error;
+        return {
+            id: data.id,
+            mediaUrl: data.media_url,
+            intervalMinutes: data.interval_minutes,
+            clickUrl: data.click_url,
+            isActive: data.is_active,
+            timestamp: data.timestamp
+        };
+    },
+
+    async updateAdvertisement(id: string, ad: Partial<any>) {
+        const updates: any = {};
+        if (ad.mediaUrl !== undefined) updates.media_url = ad.mediaUrl;
+        if (ad.intervalMinutes !== undefined) updates.interval_minutes = ad.intervalMinutes;
+        if (ad.clickUrl !== undefined) updates.click_url = ad.clickUrl;
+        if (ad.isActive !== undefined) updates.is_active = ad.isActive;
+
+        const { data, error } = await supabase
+            .from('advertisements')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return {
+            id: data.id,
+            mediaUrl: data.media_url,
+            intervalMinutes: data.interval_minutes,
+            clickUrl: data.click_url,
+            isActive: data.is_active,
+            timestamp: data.timestamp
+        };
+    },
+
+    async deleteAdvertisement(id: string) {
+        const { error } = await supabase
+            .from('advertisements')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    },
+
     async uploadFile(file: File, bucket: 'news-media' = 'news-media') {
         console.log("Starting upload...", file.name, bucket);
         const fileExt = file.name.split('.').pop();

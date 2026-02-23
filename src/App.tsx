@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Cast, Globe, Radio,
   LayoutDashboard,
   Newspaper,
   Film,
@@ -35,8 +36,7 @@ import {
   Calendar,
   BarChart2,
   Database,
-  Globe,
-  Map
+  Sparkles
 } from 'lucide-react';
 import {
   BarChart,
@@ -46,13 +46,19 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
+  AreaChart,
+  Area,
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast, Toaster } from 'sonner';
 import logoImage from './assets/logo.png';
-import { NewsItem, ShortItem, NewsType } from './types';
-import { api } from './services/api';
+import { NewsItem, ShortItem, NewsType, Advertisement } from './types';
+import { api } from './services/api'; import { pipeline, env } from '@xenova/transformers';
+
+// Configuration for Transformers.js in Browser
+env.allowLocalModels = false; // Force usage of remote models (CDN)
+env.useBrowserCache = true;   // Cache models in browser storage
 
 // --- Components ---
 
@@ -61,6 +67,7 @@ const Sidebar = ({ activeTab, setActiveTab, mobileOpen, setMobileOpen }: { activ
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'news', label: 'Manage News', icon: Newspaper },
     { id: 'shorts', label: 'Manage Shorts', icon: Film },
+    { id: 'advertisements', label: 'Manage Ads', icon: Radio },
     { id: 'approvals', label: 'User Approvals', icon: FileCheck },
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
     { id: 'app_preview', label: 'App View', icon: Smartphone },
@@ -144,10 +151,23 @@ const AnalyticsView = ({ news, shorts }: { news: NewsItem[], shorts: ShortItem[]
     };
   });
 
+  // User Stats (Top Contributors)
+  const userStats = news.reduce((acc, item) => {
+    const author = item.author || 'Unknown';
+    acc[author] = (acc[author] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const userChartData = Object.entries(userStats)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10); // Top 10
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white">Analytics Overview</h2>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total News Articles', value: totalNews, icon: Newspaper, color: 'text-blue-500' },
@@ -167,24 +187,72 @@ const AnalyticsView = ({ news, shorts }: { news: NewsItem[], shorts: ShortItem[]
         ))}
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* News Trends */}
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+          <h3 className="text-lg font-semibold text-white mb-6">News Upload Trends</h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorNews" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} fontSize={12} />
+                <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} fontSize={12} allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }} />
+                <Area type="monotone" dataKey="News" stroke="#3b82f6" fillOpacity={1} fill="url(#colorNews)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Shorts Trends */}
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+          <h3 className="text-lg font-semibold text-white mb-6">Shorts Upload Trends</h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorShorts" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#eab308" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} fontSize={12} />
+                <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} fontSize={12} allowDecimals={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }} />
+                <Area type="monotone" dataKey="Shorts" stroke="#eab308" fillOpacity={1} fill="url(#colorShorts)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* User Contributions */}
       <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
-        <h3 className="text-lg font-semibold text-white mb-6">Daily Upload Trends (Last 7 Days)</h3>
-        <div className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="date" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} />
-              <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
-                itemStyle={{ color: '#e2e8f0' }}
-                cursor={{ fill: '#334155', opacity: 0.4 }}
-              />
-              <Legend wrapperStyle={{ paddingTop: '20px' }} />
-              <Bar dataKey="News" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={50} />
-              <Bar dataKey="Shorts" fill="#eab308" radius={[4, 4, 0, 0]} maxBarSize={50} />
-            </BarChart>
-          </ResponsiveContainer>
+        <h3 className="text-lg font-semibold text-white mb-6">Top Contributors (Articles)</h3>
+        <div style={{ width: '100%', height: 350 }}>
+          {userChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={userChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} />
+                <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8' }} axisLine={{ stroke: '#475569' }} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
+                  cursor={{ fill: '#334155', opacity: 0.4 }}
+                />
+                <Bar dataKey="count" name="Articles" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={60} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-slate-500">No contributor data available</div>
+          )}
         </div>
       </div>
     </div>
@@ -560,6 +628,21 @@ const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: (
             {newsItem.title}
           </h2>
 
+          {newsItem.liveLink && (
+            <div className="mb-6">
+              <a
+                href={newsItem.liveLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors animate-pulse shadow-lg shadow-red-900/20"
+              >
+                <Radio size={18} />
+                <span>Watch Live Coverage</span>
+                <ExternalLink size={14} className="opacity-70" />
+              </a>
+            </div>
+          )}
+
           <div className="text-slate-300 leading-relaxed whitespace-pre-wrap text-base md:text-base border-b border-slate-800 pb-6 mb-4">
             {newsItem.description}
           </div>
@@ -719,12 +802,155 @@ const NewsForm = ({
     area: initialData?.area || '',
     type: initialData?.type || 'Others' as NewsType,
     isBreaking: initialData?.isBreaking || false,
+    liveLink: initialData?.liveLink || '',
     imageUrl: initialData?.imageUrl || '',
     videoUrl: initialData?.videoUrl || ''
   });
 
   const newsTypes: NewsType[] = ['Political', 'Accident', 'Education', 'Crime', 'Weather', 'Sports', 'Business', 'Social', 'Others'];
   const [uploading, setUploading] = useState(false);
+  const [generatingDesc, setGeneratingDesc] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+
+  const handleGenerateImage = async () => {
+    if (!formData.title || !formData.description) {
+      toast.error("Please enter both title and description to generate an AI image");
+      return;
+    }
+
+    setGeneratingImage(true);
+    const toastId = toast.loading("Generating AI Image... (Takes up to 15 seconds)");
+
+    try {
+      const isTelugu = /[\u0C00-\u0C7F]/.test(formData.title);
+      let promptTitle = formData.title;
+
+      // Translate title to English for better image generation if it's in Telugu
+      if (isTelugu) {
+        toast.loading("Translating prompt...", { id: toastId });
+        try {
+          const translatorTeEn = await pipeline('translation', 'Xenova/opus-mt-te-en');
+          const output = await translatorTeEn(formData.title);
+          // @ts-ignore
+          if (output && output[0] && output[0].translation_text) {
+            // @ts-ignore
+            promptTitle = output[0].translation_text;
+          }
+        } catch (e) {
+          console.warn("Translation for image prompt failed", e);
+        }
+      }
+
+      toast.loading("Generating AI Image...", { id: toastId });
+
+      const prompt = `Realistic news thumbnail. Headline: ${promptTitle}. No text in the image. High quality photography.`;
+      const encodedPrompt = encodeURIComponent(prompt);
+      const randomSeed = Math.floor(Math.random() * 1000000);
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=450&nologo=true&seed=${randomSeed}`;
+
+      // Bypass CORS and Cloudflare Turnstile entirely!
+      // Do NOT fetch in the client. Assign directly and let the browser load it as a standard img src.
+      setFormData(prev => ({ ...prev, imageUrl: imageUrl }));
+
+      toast.success("AI Image generated successfully!", { id: toastId });
+    } catch (error: any) {
+      console.error("Image Generation Error:", error);
+      toast.error(`AI Image Error: ${error.message || "Unknown error"}`, { id: toastId, duration: 5000 });
+    } finally {
+      setGeneratingImage(false);
+      setUploading(false);
+    }
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!formData.title) {
+      toast.error("Please enter a title first");
+      return;
+    }
+
+    setGeneratingDesc(true);
+    const toastId = toast.loading("Initializing AI Model... (This may take a moment)");
+
+    try {
+      // FORCE Configuration right before usage
+      env.allowLocalModels = false;
+      env.useBrowserCache = false; // Disable cache to avoid 'bad' previous downloads
+      console.log("AI Env Configured:", { allowLocal: env.allowLocalModels, useCache: env.useBrowserCache });
+
+      // Initialize the pipeline
+      const generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-77M');
+
+      toast.loading("Generating description...", { id: toastId });
+      // Language Detection (Telugu)
+      const isTelugu = /[\u0C00-\u0C7F]/.test(formData.title);
+      console.log("Language Detected:", isTelugu ? "Telugu" : "English/Other");
+
+      let promptTitle = formData.title;
+
+      // 1. If Telugu, Translate Title to English first
+      if (isTelugu) {
+        toast.loading("Translating title to English...", { id: toastId });
+        try {
+          const translatorTeEn = await pipeline('translation', 'Xenova/opus-mt-te-en');
+          const output = await translatorTeEn(formData.title);
+          // @ts-ignore
+          if (output && output[0] && output[0].translation_text) {
+            // @ts-ignore
+            promptTitle = output[0].translation_text;
+            console.log("Translated Title (TE->EN):", promptTitle);
+          }
+        } catch (err) {
+          console.warn("TE->EN Translation failed, trying direct generation", err);
+        }
+      }
+
+      toast.loading("Generating description...", { id: toastId });
+      const prompt = `Write a short news description based on this headline: "${promptTitle}"`;
+
+      const result = await generator(prompt, {
+        max_new_tokens: 150,
+        temperature: 0.7,
+        repetition_penalty: 1.2
+      });
+
+      let generatedText = "";
+      // @ts-ignore
+      if (result && result[0] && result[0].generated_text) {
+        // @ts-ignore
+        generatedText = result[0].generated_text;
+      }
+
+      if (!generatedText) throw new Error("No text generated");
+
+      // 2. If Telugu, Translate Result back to Telugu
+      if (isTelugu) {
+        toast.loading("Translating result to Telugu...", { id: toastId });
+        try {
+          const translatorEnTe = await pipeline('translation', 'Xenova/opus-mt-en-te');
+          const output = await translatorEnTe(generatedText);
+          // @ts-ignore
+          if (output && output[0] && output[0].translation_text) {
+            // @ts-ignore
+            generatedText = output[0].translation_text;
+            console.log("Translated Description (EN->TE):", generatedText);
+          }
+        } catch (err) {
+          console.error("EN->TE Translation failed", err);
+          toast.error("Generated English text but failed to translate to Telugu.");
+        }
+      }
+
+      setFormData(prev => ({ ...prev, description: generatedText }));
+      toast.success(isTelugu ? "వివరణ సృష్టించబడింది!" : "Description generated!", { id: toastId });
+
+    } catch (error: any) {
+      console.error("AI Generation Error:", error);
+      // Show the actual error message to the user
+      toast.error(`AI Error: ${error.message || "Unknown error"}. Check console details.`, { id: toastId, duration: 5000 });
+    } finally {
+      setGeneratingDesc(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -815,7 +1041,24 @@ const NewsForm = ({
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Description <span className="text-red-400">*</span></label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-medium text-slate-300">Description <span className="text-red-400">*</span></label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateDescription}
+                    disabled={generatingDesc || !formData.title}
+                    className="text-xs flex items-center gap-1 text-yellow-500 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {generatingDesc ? (
+                      <span className="animate-pulse">Generating...</span>
+                    ) : (
+                      <>
+                        <Sparkles size={12} />
+                        <span>Auto-Write with AI</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -853,9 +1096,44 @@ const NewsForm = ({
                 </div>
               </div>
 
+              {/* Live Link */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Live / External Link (Optional)</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Cast size={16} className="text-slate-500" />
+                  </div>
+                  <input
+                    type="url"
+                    value={formData.liveLink}
+                    onChange={(e) => setFormData({ ...formData, liveLink: e.target.value })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500"
+                    placeholder="https://youtube.com/watch?v=..."
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Add a YouTube or streaming URL for live coverage.</p>
+              </div>
+
               {/* Media */}
               <div className="space-y-3 pt-2">
-                <label className="block text-sm font-medium text-slate-300">Media Attachments</label>
+                <div className="flex justify-between items-center">
+                  <label className="block text-sm font-medium text-slate-300">Media Attachments</label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateImage}
+                    disabled={generatingImage || !formData.title || !formData.description}
+                    className="text-xs flex items-center gap-1 text-yellow-500 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {generatingImage ? (
+                      <span className="animate-pulse">Generating Image...</span>
+                    ) : (
+                      <>
+                        <ImageIcon size={12} />
+                        <span>Generate AI Image</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Image Upload */}
                   <div className="relative group">
@@ -1448,15 +1726,27 @@ const NewsApprovalManager = ({ pendingNews, setPendingNews, setNews }: { pending
 
             <div className="flex-1 flex flex-col justify-between">
               <div>
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-300 border border-slate-600">
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="px-3 py-1 bg-yellow-500 text-slate-900 font-bold rounded-lg text-sm">
                     {item.type}
                   </span>
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-300 border border-slate-600">
+                  <span className="text-slate-400 text-sm flex items-center gap-1">
+                    <Globe size={14} />
                     {item.area}
                   </span>
-                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    Submitted by: {item.author}
+                  {item.liveLink && (
+                    <a
+                      href={item.liveLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm flex items-center gap-1 transition-colors animate-pulse"
+                    >
+                      <Radio size={14} />
+                      Watch Live
+                    </a>
+                  )}
+                  <span className="text-slate-500 text-sm ml-auto">
+                    {new Date(item.timestamp).toLocaleDateString()}
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1">{item.title}</h3>
@@ -1614,7 +1904,7 @@ const ShortCard = ({ short, onViewItem }: { short: ShortItem, onViewItem: (item:
 };
 
 const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: ShortItem[], onViewItem: (item: NewsItem | ShortItem) => void }) => {
-  const [subTab, setSubTab] = useState<'home' | 'categories' | 'shorts' | 'profile'>('home');
+  const [subTab, setSubTab] = useState<'home' | 'categories' | 'saved'>('home');
 
   // Group news by type for the home view
   const groupedNews = news.reduce((acc, item) => {
@@ -1629,145 +1919,88 @@ const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: Sh
   const categories = Array.from(new Set(news.map(n => n.type)));
 
   return (
-    <div className="flex justify-center py-10 bg-slate-900/30 rounded-xl border border-slate-800 overflow-hidden">
-      {/* Mobile Device Emulator Frame */}
-      <div className="relative w-[375px] h-[812px] bg-black rounded-[3rem] border-[14px] border-slate-800 shadow-[20px_20px_60px_rgba(0,0,0,0.8)] overflow-hidden ring-1 ring-slate-700/50 mx-auto transform origin-top md:scale-100 sm:scale-[0.85] scale-[0.70]">
-
-        {/* Hardware Notch */}
-        <div className="absolute top-0 inset-x-0 h-7 bg-slate-800 rounded-b-3xl w-40 mx-auto z-[60] flex justify-center items-center">
-          <div className="w-16 h-1.5 bg-slate-950 rounded-full"></div>
-          <div className="w-2 h-2 bg-blue-900/40 rounded-full ml-2"></div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-white">User App Content</h2>
+        <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+          <button
+            onClick={() => setSubTab('home')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'home' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
+          >
+            Home
+          </button>
+          <button
+            onClick={() => setSubTab('categories')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'categories' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
+          >
+            Categories
+          </button>
+          <button
+            onClick={() => setSubTab('saved')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${subTab === 'saved' ? 'bg-yellow-500 text-slate-900 shadow' : 'text-slate-400 hover:text-white'}`}
+          >
+            Saved
+          </button>
         </div>
+      </div>
 
-        {/* Screen Content Wrapper */}
-        <div className="h-full w-full bg-[#020617] relative z-30 pt-10">
-          {/* Scrollable Content Area */}
-          <div className="absolute inset-0 pt-10 px-4 pb-24 overflow-y-auto custom-scrollbar">
-            {subTab === 'home' && (
-              <div className="space-y-6">
-                {/* App Header: Admin, Weather, Notifications */}
-                <div className="flex items-center justify-between bg-[#048ABF] p-4 rounded-xl border border-slate-700 backdrop-blur-sm shadow-lg shadow-blue-900/20">
-                  {/* Left: Admin Profile */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-slate-900 shadow-lg">
-                      <UserCircle size={24} />
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-bold leading-none">Admin</p>
-                      <span className="text-[10px] text-yellow-500 font-medium bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 mt-1 inline-block">VERIFIED</span>
-                    </div>
-                  </div>
-
-                  {/* Center: Weather Widget */}
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-2 text-white">
-                      <CloudSun size={24} className="text-yellow-400" />
-                      <span className="font-bold text-xl">28°C</span>
-                    </div>
-                    <p className="text-xs text-slate-400 font-medium">Vijayawada</p>
-                  </div>
-
-                  {/* Right: Notifications */}
-                  <button className="relative p-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-full transition-all hover:scale-105 active:scale-95 border border-slate-600">
-                    <Bell size={20} />
-                    <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-slate-800 rounded-full animate-pulse"></span>
-                  </button>
+      <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-6 min-h-[600px]">
+        {subTab === 'home' ? (
+          <div className="space-y-6">
+            {/* App Header: Admin, Weather, Notifications */}
+            <div className="flex items-center justify-between bg-[#048ABF] p-4 rounded-xl border border-slate-700 backdrop-blur-sm shadow-lg shadow-blue-900/20">
+              {/* Left: Admin Profile */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-slate-900 shadow-lg">
+                  <UserCircle size={24} />
                 </div>
-
-                {/* Breaking News Ticker */}
-                {news.some(n => n.isBreaking) && (
-                  <div className="bg-red-600 text-white px-4 py-2 text-sm font-bold flex items-center gap-4 overflow-hidden rounded-lg shadow-lg shadow-red-900/20">
-                    <span className="bg-white text-red-600 px-2 py-0.5 text-xs rounded uppercase tracking-wider animate-pulse font-bold shrink-0">Breaking News</span>
-                    <div className="animate-marquee whitespace-nowrap overflow-hidden flex items-center gap-4">
-                      {news.filter(n => n.isBreaking).map((n, index) => (
-                        <span
-                          key={n.id}
-                          onClick={() => onViewItem(n)}
-                          className="cursor-pointer hover:underline hover:text-white/90 transition-colors inline-flex items-center"
-                        >
-                          {n.title}
-                          {index < news.filter(n => n.isBreaking).length - 1 && <span className="mx-4 text-red-200 opacity-50">•</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Shorts Section */}
                 <div>
-                  <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
-                    <Film size={20} className="text-yellow-500" /> Shorts & Reels
-                  </h3>
-                  <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-                    {shorts.map(short => (
-                      <ShortCard key={short.id} short={short} onViewItem={onViewItem} />
-                    ))}
-                    {shorts.length === 0 && (
-                      <div className="text-slate-500 italic px-4 py-8 w-full text-center bg-slate-800/30 rounded-lg border border-dashed border-slate-800">
-                        No shorts available currently.
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-white text-sm font-bold leading-none">Admin</p>
+                  <span className="text-[10px] text-yellow-500 font-medium bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 mt-1 inline-block">VERIFIED</span>
                 </div>
+              </div>
 
-                {/* News Categories */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {Object.entries(groupedNews).map(([category, items]) => (
-                    <div key={category} className="space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                        <h3 className="text-white font-bold text-xl capitalize border-l-4 border-yellow-500 pl-3">{category}</h3>
-                        <button className="text-sm text-yellow-500 font-medium hover:text-yellow-400">View All</button>
-                      </div>
-                      <div className="space-y-4">
-                        {items.slice(0, 3).map(item => (
-                          <div key={item.id} onClick={() => onViewItem(item)} className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-sm flex h-28 hover:border-slate-600 transition-colors cursor-pointer">
-                            <div className="w-32 h-full bg-slate-700 relative shrink-0">
-                              {item.imageUrl && <img src={item.imageUrl} className="w-full h-full object-cover" alt="" />}
-                            </div>
-                            <div className="p-3 flex flex-col justify-between flex-1">
-                              <div>
-                                <h4 className="text-white font-semibold text-base line-clamp-2 leading-tight mb-1">{item.title}</h4>
-                                <p className="text-slate-400 text-xs line-clamp-1">{item.description}</p>
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
-                                <span className="bg-slate-700/50 px-1.5 py-0.5 rounded">{item.area}</span>
-                                <span>•</span>
-                                <span>{new Date(item.timestamp).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+              {/* Center: Weather Widget */}
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-2 text-white">
+                  <CloudSun size={24} className="text-yellow-400" />
+                  <span className="font-bold text-xl">28°C</span>
+                </div>
+                <p className="text-xs text-slate-400 font-medium">Vijayawada</p>
+              </div>
+
+              {/* Right: Notifications */}
+              <button className="relative p-2.5 bg-slate-700/50 hover:bg-slate-700 text-white rounded-full transition-all hover:scale-105 active:scale-95 border border-slate-600">
+                <Bell size={20} />
+                <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-slate-800 rounded-full animate-pulse"></span>
+              </button>
+            </div>
+
+            {/* Breaking News Ticker */}
+            {news.some(n => n.isBreaking) && (
+              <div className="bg-red-600 text-white px-4 py-2 text-sm font-bold flex items-center gap-4 overflow-hidden rounded-lg shadow-lg shadow-red-900/20">
+                <span className="bg-white text-red-600 px-2 py-0.5 text-xs rounded uppercase tracking-wider animate-pulse font-bold shrink-0">Breaking News</span>
+                <div className="animate-marquee whitespace-nowrap overflow-hidden flex items-center gap-4">
+                  {news.filter(n => n.isBreaking).map((n, index) => (
+                    <span
+                      key={n.id}
+                      onClick={() => onViewItem(n)}
+                      className="cursor-pointer hover:underline hover:text-white/90 transition-colors inline-flex items-center"
+                    >
+                      {n.title}
+                      {index < news.filter(n => n.isBreaking).length - 1 && <span className="mx-4 text-red-200 opacity-50">•</span>}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
-            {subTab === 'categories' && (
-              <div className="grid grid-cols-2 gap-4">
-                {categories.map(cat => (
-                  <div key={cat} className="aspect-square bg-slate-800 border border-slate-700 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-yellow-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group shadow-lg">
-                    <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:bg-yellow-500/10 transition-colors">
-                      <Newspaper className="text-slate-400 group-hover:text-yellow-500" size={24} />
-                    </div>
-                    <div className="text-center">
-                      <span className="block text-white font-bold text-base">{cat}</span>
-                      <span className="text-xs text-slate-500">{groupedNews[cat]?.length || 0} articles</span>
-                    </div>
-                  </div>
-                ))}
-                {categories.length === 0 && (
-                  <div className="col-span-full text-center text-slate-500 py-20 flex flex-col items-center">
-                    <Filter size={48} className="opacity-20 mb-4" />
-                    <p>No categories found.</p>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {subTab === 'shorts' && (
-              <div className="grid grid-cols-1 gap-4">
-                <h3 className="text-xl font-bold text-white mb-2">Shorts</h3>
+            {/* Shorts Section */}
+            <div>
+              <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                <Film size={20} className="text-yellow-500" /> Shorts & Reels
+              </h3>
+              <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
                 {shorts.map(short => (
                   <ShortCard key={short.id} short={short} onViewItem={onViewItem} />
                 ))}
@@ -1777,57 +2010,61 @@ const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: Sh
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {subTab === 'profile' && (
-              <div className="flex flex-col items-center pt-8 space-y-4">
-                <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-lg text-slate-900">
-                  <UserCircle size={64} />
-                </div>
-                <h3 className="text-2xl font-bold text-white">Guest User</h3>
-                <div className="w-full bg-slate-800 rounded-xl p-4 mt-6 border border-slate-700">
-                  <h4 className="text-slate-400 text-sm font-semibold mb-3 border-b border-slate-700 pb-2">Preferences</h4>
-                  <div className="flex items-center justify-between py-2 text-white">
-                    <span>Language</span>
-                    <span className="text-slate-400">English</span>
+            {/* News Categories */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {Object.entries(groupedNews).map(([category, items]) => (
+                <div key={category} className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h3 className="text-white font-bold text-xl capitalize border-l-4 border-yellow-500 pl-3">{category}</h3>
+                    <button className="text-sm text-yellow-500 font-medium hover:text-yellow-400">View All</button>
                   </div>
-                  <div className="flex items-center justify-between py-2 text-white">
-                    <span>Location</span>
-                    <span className="text-slate-400">Vijayawada</span>
+                  <div className="space-y-4">
+                    {items.slice(0, 3).map(item => (
+                      <div key={item.id} onClick={() => onViewItem(item)} className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-sm flex h-28 hover:border-slate-600 transition-colors cursor-pointer">
+                        <div className="w-32 h-full bg-slate-700 relative shrink-0">
+                          {item.imageUrl && <img src={item.imageUrl} className="w-full h-full object-cover" alt="" />}
+                        </div>
+                        <div className="p-3 flex flex-col justify-between flex-1">
+                          <div>
+                            <h4 className="text-white font-semibold text-base line-clamp-2 leading-tight mb-1">{item.title}</h4>
+                            <p className="text-slate-400 text-xs line-clamp-1">{item.description}</p>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
+                            <span className="bg-slate-700/50 px-1.5 py-0.5 rounded">{item.area}</span>
+                            <span>•</span>
+                            <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
-
-          </div>
-
-          {/* Bottom Navigation Bar */}
-          <div className="absolute bottom-0 inset-x-0 bg-[#0f172a] border-t border-slate-700 pb-8 pt-3 px-6 z-50 rounded-b-[2rem]">
-            <div className="flex justify-between items-center bg-transparent">
-              <button onClick={() => setSubTab('home')} className={`flex flex-col items-center gap-1 transition-colors ${subTab === 'home' ? 'text-yellow-500' : 'text-slate-400 hover:text-slate-300'}`}>
-                <LayoutDashboard size={24} />
-                <span className="text-[10px] font-medium">Home</span>
-              </button>
-              <button onClick={() => setSubTab('categories')} className={`flex flex-col items-center gap-1 transition-colors ${subTab === 'categories' ? 'text-yellow-500' : 'text-slate-400 hover:text-slate-300'}`}>
-                <LayoutList size={24} />
-                <span className="text-[10px] font-medium">Categories</span>
-              </button>
-              <button onClick={() => setSubTab('shorts')} className="relative -top-5">
-                <div className={`bg-yellow-500 rounded-full p-4 shadow-lg shadow-yellow-500/20 text-slate-900 ${subTab === 'shorts' ? 'ring-4 ring-yellow-500/30' : ''}`}>
-                  <Film size={26} fill="currentColor" />
-                </div>
-              </button>
-              <button className={`flex flex-col items-center gap-1 transition-colors text-slate-400 hover:text-slate-300`}>
-                <Globe size={24} />
-                <span className="text-[10px] font-medium">Language</span>
-              </button>
-              <button onClick={() => setSubTab('profile')} className={`flex flex-col items-center gap-1 transition-colors ${subTab === 'profile' ? 'text-yellow-500' : 'text-slate-400 hover:text-slate-300'}`}>
-                <UserCircle size={24} />
-                <span className="text-[10px] font-medium">Profile</span>
-              </button>
+              ))}
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {categories.map(cat => (
+              <div key={cat} className="aspect-square bg-slate-800 border border-slate-700 rounded-xl flex flex-col items-center justify-center gap-3 hover:border-yellow-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group shadow-lg">
+                <div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center group-hover:bg-yellow-500/10 transition-colors">
+                  <Newspaper className="text-slate-400 group-hover:text-yellow-500" size={24} />
+                </div>
+                <div className="text-center">
+                  <span className="block text-white font-bold text-base">{cat}</span>
+                  <span className="text-xs text-slate-500">{groupedNews[cat]?.length || 0} articles</span>
+                </div>
+              </div>
+            ))}
+            {categories.length === 0 && (
+              <div className="col-span-full text-center text-slate-500 py-20 flex flex-col items-center">
+                <Filter size={48} className="opacity-20 mb-4" />
+                <p>No categories found.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2194,6 +2431,175 @@ const ShortsManager = ({ shorts, setShorts, onViewItem }: { shorts: ShortItem[],
   );
 };
 
+// --- Advertisements ---
+
+const AdvertisementsManager = ({
+  advertisements,
+  onAdd,
+  onUpdate,
+  onDelete
+}: {
+  advertisements: Advertisement[],
+  onAdd: (ad: Omit<Advertisement, 'id' | 'timestamp'>) => Promise<void>,
+  onUpdate: (id: string, ad: Partial<Advertisement>) => Promise<void>,
+  onDelete: (id: string) => Promise<void>
+}) => {
+  const [showForm, setShowForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ mediaUrl: '', intervalMinutes: 15, clickUrl: '', isActive: true });
+  const [file, setFile] = useState<File | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file && !formData.mediaUrl) {
+      toast.error('Please select an image or video');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let finalMediaUrl = formData.mediaUrl;
+      if (file) {
+        finalMediaUrl = await api.uploadFile(file);
+      }
+
+      await onAdd({
+        mediaUrl: finalMediaUrl,
+        intervalMinutes: formData.intervalMinutes,
+        clickUrl: formData.clickUrl,
+        isActive: formData.isActive
+      });
+      setShowForm(false);
+      setFormData({ mediaUrl: '', intervalMinutes: 15, clickUrl: '', isActive: true });
+      setFile(null);
+      toast.success('Advertisement added successfully');
+    } catch (error) {
+      toast.error('Failed to add ad');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-white">Manage Advertisements</h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-colors"
+        >
+          {showForm ? <X size={20} /> : <Plus size={20} />}
+          {showForm ? 'Cancel' : 'Upload Ad'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">Media (Image/Video) *</label>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white outline-none focus:border-yellow-500 transition-colors"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Interval (Minutes)</label>
+              <input
+                type="number"
+                min="1"
+                value={formData.intervalMinutes}
+                onChange={(e) => setFormData(p => ({ ...p, intervalMinutes: parseInt(e.target.value) || 15 }))}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white outline-none focus:border-yellow-500 transition-colors"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Click URL (Optional)</label>
+              <input
+                type="url"
+                value={formData.clickUrl}
+                onChange={(e) => setFormData(p => ({ ...p, clickUrl: e.target.value }))}
+                placeholder="https://"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white outline-none focus:border-yellow-500 transition-colors"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-slate-300">Active</label>
+            <button type="button" onClick={() => setFormData(p => ({ ...p, isActive: !p.isActive }))} className={`w-11 h-6 rounded-full relative transition-colors ${formData.isActive ? 'bg-yellow-500' : 'bg-slate-700'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${formData.isActive ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+          <div className="flex justify-end pt-4">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-6 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? 'Uploading...' : 'Save Advertisement'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {advertisements.map(ad => (
+          <div key={ad.id} className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden relative group">
+            <div className="h-32 bg-black relative">
+              {ad.mediaUrl.match(/\.(mp4|webm|ogg)$/i) ? (
+                <video src={ad.mediaUrl} className="w-full h-full object-cover" controls />
+              ) : (
+                <img src={ad.mediaUrl} className="w-full h-full object-cover" alt="Ad" />
+              )}
+            </div>
+            <div className="p-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-slate-400 flex items-center gap-2">
+                  Int: {ad.intervalMinutes}m
+                  <button
+                    onClick={() => {
+                      const newVal = window.prompt('Enter new interval (minutes):', ad.intervalMinutes.toString());
+                      if (newVal) {
+                        const parsed = parseInt(newVal, 10);
+                        if (!isNaN(parsed) && parsed > 0) {
+                          onUpdate(ad.id, { intervalMinutes: parsed });
+                        }
+                      }
+                    }}
+                    className="text-yellow-500 hover:text-yellow-400 p-1"
+                    title="Edit Interval"
+                  >
+                    <Edit size={12} />
+                  </button>
+                </span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${ad.isActive ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                  {ad.isActive ? 'Active' : 'Paused'}
+                </span>
+              </div>
+              {ad.clickUrl && (
+                <a href={ad.clickUrl} target="_blank" rel="noreferrer" className="text-blue-400 text-[10px] truncate block hover:underline">
+                  {ad.clickUrl}
+                </a>
+              )}
+              <div className="pt-2 flex gap-2">
+                <button onClick={() => onUpdate(ad.id, { isActive: !ad.isActive })} className="flex-1 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-white transition-colors">
+                  {ad.isActive ? 'Pause' : 'Activate'}
+                </button>
+                <button onClick={() => { if (window.confirm('Delete this ad?')) onDelete(ad.id); }} className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 import splashImage from './assets/splash_v2.jpg';
@@ -2208,20 +2614,23 @@ export default function App() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [pendingNews, setPendingNews] = useState<NewsItem[]>([]);
   const [shorts, setShorts] = useState<ShortItem[]>([]);
+  const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // -- Fetch Data --
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [newsData, shortsData] = await Promise.all([
+        const [newsData, shortsData, adsData] = await Promise.all([
           api.getNews(),
-          api.getShorts()
+          api.getShorts(),
+          api.getAdvertisements()
         ]);
 
         setNews(newsData.filter(n => n.status === 'published' || !n.status));
         setPendingNews(newsData.filter(n => n.status === 'pending'));
         setShorts(shortsData);
+        setAdvertisements(adsData);
       } catch (error) {
         console.error('Failed to fetch data:', error);
         toast.error('Failed to connect to database');
@@ -2230,6 +2639,37 @@ export default function App() {
 
     fetchData();
   }, []);
+
+  // -- Advertisement Handlers --
+  const handleAddAd = async (ad: Omit<Advertisement, 'id' | 'timestamp'>) => {
+    try {
+      const newAd = await api.createAdvertisement(ad);
+      setAdvertisements([newAd, ...advertisements]);
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  };
+
+  const handleUpdateAd = async (id: string, updates: Partial<Advertisement>) => {
+    try {
+      const updated = await api.updateAdvertisement(id, updates);
+      setAdvertisements(advertisements.map(a => a.id === id ? updated : a));
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    try {
+      await api.deleteAdvertisement(id);
+      setAdvertisements(advertisements.filter(a => a.id !== id));
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  };
 
   // -- Splash Screen Effect --
   useEffect(() => {
@@ -2416,6 +2856,15 @@ export default function App() {
 
             {activeTab === 'shorts' && (
               <ShortsManager shorts={shorts} setShorts={setShorts} onViewItem={setViewingMedia} />
+            )}
+
+            {activeTab === 'advertisements' && (
+              <AdvertisementsManager
+                advertisements={advertisements}
+                onAdd={handleAddAd}
+                onUpdate={handleUpdateAd}
+                onDelete={handleDeleteAd}
+              />
             )}
 
             {activeTab === 'settings' && (
