@@ -3,7 +3,7 @@ const db = require('./db');
 async function fixUrls() {
     const brokenDomain = 'cdn.samanyudutv.com';
     const localhostBase = 'http://localhost:5000/uploads';
-    const ipBase = 'http://192.168.29.208:5000/uploads';
+    const ipBase = 'http://192.168.187.185:5000/uploads';
 
     try {
         const tables = ['shorts', 'news', 'advertisements'];
@@ -23,9 +23,10 @@ async function fixUrls() {
 
                 for (const col of cols) {
                     let val = row[col];
-                    if (val && (val.includes(brokenDomain) || val.includes('localhost'))) {
+                    if (val && (val.includes(brokenDomain) || val.includes('localhost') || val.includes('192.168.29.208'))) {
                         val = val.replace(/https?:\/\/cdn\.samanyudutv\.com/, ipBase);
                         val = val.replace(/http:\/\/localhost:5000\/uploads/, ipBase);
+                        val = val.replace(/http:\/\/192\.168\.29\.208:5000\/uploads/, ipBase);
                         updates[col] = val;
                         updated = true;
                     }
