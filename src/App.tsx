@@ -62,15 +62,20 @@ env.useBrowserCache = true;   // Cache models in browser storage
 
 // --- Components ---
 
-const Sidebar = ({ activeTab, setActiveTab, mobileOpen, setMobileOpen }: { activeTab: string, setActiveTab: (t: string) => void, mobileOpen: boolean, setMobileOpen: (o: boolean) => void }) => {
+const Sidebar = ({ activeTab, setActiveTab, mobileOpen, setMobileOpen, user, onLogout }: { activeTab: string, setActiveTab: (t: string) => void, mobileOpen: boolean, setMobileOpen: (o: boolean) => void, user: any, onLogout: () => void }) => {
+  const isSuper = user?.role === 'super_admin';
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'news', label: 'Manage News', icon: Newspaper },
     { id: 'shorts', label: 'Manage Shorts', icon: Film },
-    { id: 'advertisements', label: 'Manage Ads', icon: Radio },
-    { id: 'approvals', label: 'User Approvals', icon: FileCheck },
-    { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-    { id: 'app_preview', label: 'App View', icon: Smartphone },
+    ...(isSuper ? [
+      { id: 'reporters', label: 'District Reporters', icon: UserCircle },
+      { id: 'advertisements', label: 'Manage Ads', icon: Radio },
+      { id: 'approvals', label: 'User Approvals', icon: FileCheck },
+      { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+      { id: 'app_preview', label: 'App View', icon: Smartphone },
+    ] : []),
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -91,7 +96,7 @@ const Sidebar = ({ activeTab, setActiveTab, mobileOpen, setMobileOpen }: { activ
             <img src={logoImage} alt="SAMANYUDU TV" className="h-16 object-contain" />
           </div>
 
-          <nav className="flex-1 py-6 px-3 space-y-1">
+          <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
             {menuItems.map((item) => (
               <button
                 key={item.id}
@@ -100,7 +105,7 @@ const Sidebar = ({ activeTab, setActiveTab, mobileOpen, setMobileOpen }: { activ
                   setMobileOpen(false);
                 }}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 ${activeTab === item.id
-                  ? 'bg-yellow-500 text-slate-900 font-semibold'
+                  ? 'bg-yellow-500 text-slate-900 font-semibold shadow-lg shadow-yellow-500/10'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`}
               >
@@ -110,8 +115,19 @@ const Sidebar = ({ activeTab, setActiveTab, mobileOpen, setMobileOpen }: { activ
             ))}
           </nav>
 
-          <div className="p-4 border-t border-slate-800">
-            {/* Sidebar Footer */}
+          <div className="p-4 border-t border-slate-800 space-y-2">
+            <div className="px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
+              <p className="text-white text-sm font-bold truncate">{user?.name || 'Admin'}</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">{user?.role?.replace('_', ' ') || 'Role'}</p>
+              {user?.district && <p className="text-[10px] text-yellow-500/80 mt-1">📍 {user.district}</p>}
+            </div>
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <LogOut size={20} />
+              <span>Log Out</span>
+            </button>
           </div>
         </div>
       </div>
@@ -259,22 +275,82 @@ const AnalyticsView = ({ news, shorts }: { news: NewsItem[], shorts: ShortItem[]
   );
 };
 
-const SettingsView = () => {
+const SettingsView = ({ user }: { user: any }) => {
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwords.new !== passwords.confirm) {
+      toast.error("New passwords don't match");
+      return;
+    }
+    try {
+      await api.updateReporter(user.id, { password: passwords.new });
+      toast.success("Password updated successfully");
+      setShowPasswordForm(false);
+      setPasswords({ current: '', new: '', confirm: '' });
+    } catch (e) {
+      toast.error("Failed to update password");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white">Settings</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
-        <div className="lg:col-span-1 bg-slate-800 rounded-xl border border-slate-700 p-6 flex flex-col items-center text-center">
-          <div className="w-24 h-24 bg-gradient-to-br from-slate-700 to-slate-600 rounded-full flex items-center justify-center text-slate-300 mb-4 ring-4 ring-slate-900 shadow-xl">
-            <UserCircle size={48} />
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 flex flex-col items-center text-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-slate-700 to-slate-600 rounded-full flex items-center justify-center text-slate-300 mb-4 ring-4 ring-slate-900 shadow-xl overflow-hidden">
+              {logoImage ? <img src={logoImage} alt="Logo" className="w-full h-full object-cover" /> : <UserCircle size={48} />}
+            </div>
+            <h3 className="text-xl font-bold text-white">{user?.name || 'Admin'}</h3>
+            <p className="text-slate-400 text-sm mb-2">{user?.email}</p>
+            <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 text-[10px] font-bold uppercase tracking-wider rounded border border-yellow-500/20 mb-6">
+              {user?.role?.replace('_', ' ')}
+            </span>
+
+            <button
+              onClick={() => setShowPasswordForm(!showPasswordForm)}
+              className="w-full py-2 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              Change Password
+            </button>
           </div>
-          <h3 className="text-xl font-bold text-white">Super Admin</h3>
-          <p className="text-slate-400 text-sm mb-6">admin@samanyudu.tv</p>
-          <button className="w-full py-2 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-colors">
-            Edit Profile
-          </button>
+
+          {showPasswordForm && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+              <h4 className="text-white font-bold mb-4">Update Password</h4>
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={passwords.new}
+                    onChange={e => setPasswords({ ...passwords, new: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-yellow-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={passwords.confirm}
+                    onChange={e => setPasswords({ ...passwords, confirm: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-yellow-500"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button type="submit" className="flex-1 py-2 bg-yellow-500 text-slate-900 font-bold rounded-lg text-sm">Save</button>
+                  <button type="button" onClick={() => setShowPasswordForm(false)} className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm">Cancel</button>
+                </div>
+              </form>
+            </motion.div>
+          )}
         </div>
 
         {/* General Settings */}
@@ -324,7 +400,7 @@ const SettingsView = () => {
       </div>
     </div>
   );
-}
+};
 
 const useItemInteractions = (item: NewsItem | ShortItem) => {
   const [liked, setLiked] = useState(() => {
@@ -382,6 +458,287 @@ const useItemInteractions = (item: NewsItem | ShortItem) => {
   return { liked, saved, likeCount, handleLike, handleSave, handleShare };
 };
 
+const LoginView = ({ onLogin }: { onLogin: (user: any) => void }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const data = await api.adminLogin(email, password);
+      onLogin(data.user);
+      toast.success(`Welcome back, ${data.user.name}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-[#020617] z-[200] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl p-8"
+      >
+        <div className="flex flex-col items-center mb-8">
+          <img src={logoImage} alt="Logo" className="h-20 mb-4" />
+          <h2 className="text-2xl font-bold text-white">Admin Portal</h2>
+          <p className="text-slate-400 text-sm mt-2">Sign in to manage your content</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300">Email Address</label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all"
+                placeholder="admin@samanyudu.tv"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300">Password</label>
+            <div className="relative">
+              <Settings className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-xl transition-all shadow-lg shadow-yellow-500/20 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <span className="animate-spin h-5 w-5 border-2 border-slate-900 border-t-transparent rounded-full"></span>
+            ) : (
+              "Sign In"
+            )}
+          </button>
+        </form>
+
+        <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+          <p className="text-xs text-slate-500">© 2026 SAMANYUDU TV. All Rights Reserved.</p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const ReportersManager = () => {
+  const [reporters, setReporters] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingReporter, setEditingReporter] = useState<any>(null);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    state: 'Andhra Pradesh',
+    district: ''
+  });
+
+  const fetchReporters = async () => {
+    try {
+      const data = await api.getReporters();
+      setReporters(data);
+    } catch (e) {
+      toast.error("Failed to load reporters");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReporters();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingReporter) {
+        await api.updateReporter(editingReporter.id, formData);
+        toast.success("Reporter updated");
+      } else {
+        await api.createReporter(formData);
+        toast.success("Reporter created");
+      }
+      setShowForm(false);
+      setEditingReporter(null);
+      setFormData({ name: '', email: '', password: '', state: 'Andhra Pradesh', district: '' });
+      fetchReporters();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Delete this reporter?")) {
+      try {
+        await api.deleteReporter(id);
+        fetchReporters();
+        toast.success("Reporter removed");
+      } catch (e) {
+        toast.error("Delete failed");
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-white">District Reporters</h2>
+        <button
+          onClick={() => {
+            setEditingReporter(null);
+            setFormData({ name: '', email: '', password: '', state: 'Andhra Pradesh', district: '' });
+            setShowForm(true);
+          }}
+          className="bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+        >
+          <Plus size={20} /> Add Reporter
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm text-slate-400">Reporter Name</label>
+              <input
+                value={formData.name}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-700 p-2 rounded text-white"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-slate-400">Email Address</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-700 p-2 rounded text-white"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-slate-400">Password</label>
+              <input
+                type="text"
+                value={formData.password}
+                onChange={e => setFormData({ ...formData, password: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-700 p-2 rounded text-white"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-slate-400">State</label>
+              <select
+                value={formData.state}
+                onChange={e => setFormData({ ...formData, state: e.target.value, district: '' })}
+                className="w-full bg-slate-900 border border-slate-700 p-2 rounded text-white"
+              >
+                <option value="Andhra Pradesh">Andhra Pradesh</option>
+                <option value="Telangana">Telangana</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-slate-400">District Assignment</label>
+              <select
+                value={formData.district}
+                onChange={e => setFormData({ ...formData, district: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-700 p-2 rounded text-white"
+                required
+              >
+                <option value="">Select District</option>
+                {(formData.state === 'Andhra Pradesh' ? [
+                  'Anantapur', 'Chittoor', 'East Godavari', 'Guntur', 'Kadapa', 'Krishna', 'Kurnool', 'Nellore', 'Prakasam', 'Srikakulam', 'Visakhapatnam', 'Vizianagaram', 'West Godavari'
+                ] : [
+                  'Adilabad', 'Bhadradri Kothagudem', 'Hyderabad', 'Jagtial', 'Jangaon', 'Jayashankar Bhupalpally', 'Jogulamba Gadwal', 'Kamareddy', 'Karimnagar', 'Khammam', 'Kumuram Bheem Asifabad', 'Mahabubabad', 'Mahabubnagar', 'Mancherial', 'Medak', 'Medchal–Malkajgiri', 'Mulugu', 'Nagarkurnool', 'Nalgonda', 'Narayanpet', 'Nirmal', 'Nizamabad', 'Peddapalli', 'Rajanna Sircilla', 'Rangareddy', 'Sangareddy', 'Siddipet', 'Suryapet', 'Vikarabad', 'Wanaparthy', 'Warangal Rural', 'Warangal Urban', 'Yadadri Bhuvanagiri'
+                ]).map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="md:col-span-2 flex justify-end gap-3 mt-4">
+              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-slate-400">Cancel</button>
+              <button type="submit" className="bg-yellow-500 text-slate-900 px-6 py-2 rounded font-bold">Save Reporter</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg">
+        <table className="w-full text-left">
+          <thead className="bg-slate-900/50 text-slate-400 text-xs uppercase font-bold tracking-wider">
+            <tr>
+              <th className="px-6 py-4">Name</th>
+              <th className="px-6 py-4">Email / Password</th>
+              <th className="px-6 py-4">Location</th>
+              <th className="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-700">
+            {reporters.map(rep => (
+              <tr key={rep.id} className="hover:bg-slate-700/30 transition-colors">
+                <td className="px-6 py-4 font-medium text-white">{rep.name}</td>
+                <td className="px-6 py-4 italic text-slate-400">{rep.email}<br /><span className="text-xs">{rep.password}</span></td>
+                <td className="px-6 py-4">
+                  <span className="text-xs text-slate-500">{rep.state}</span><br />
+                  <span className="text-sm text-yellow-500 font-semibold">{rep.district}</span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => {
+                        setEditingReporter(rep);
+                        setFormData({
+                          name: rep.name,
+                          email: rep.email,
+                          password: rep.password,
+                          state: rep.state,
+                          district: rep.district
+                        });
+                        setShowForm(true);
+                      }}
+                      className="text-blue-400 hover:text-blue-300"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(rep.id)} className="text-red-400 hover:text-red-300">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {reporters.length === 0 && !loading && (
+          <div className="p-8 text-center text-slate-500">No district reporters found.</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: () => void }) => {
   const isShort = 'duration' in item;
 
@@ -432,9 +789,10 @@ const MediaPlayer = ({ item, onClose }: { item: NewsItem | ShortItem, onClose: (
                     const errorDiv = document.createElement('div');
                     errorDiv.className = "absolute inset-0 flex flex-col items-center justify-center bg-slate-900 p-4 text-center z-10";
                     errorDiv.innerHTML = `
-                      <div class="text-red-500 mb-2"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></div>
+                      <div class="text-red-500 mb-2"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12 y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></div>
                       <p class="text-white font-bold mb-1">Playback Failed</p>
-                      <p class="text-slate-400 text-xs break-all">${shortItem.videoUrl}</p>
+                      <p class="text-slate-400 text-xs mb-2">File missing or invalid URL</p>
+                      <p class="text-slate-500 text-[10px] break-all px-4">${shortItem.videoUrl}</p>
                     `;
                     container.appendChild(errorDiv);
                     e.currentTarget.style.display = 'none';
@@ -790,21 +1148,26 @@ const DashboardStats = ({ newsCount, shortsCount, pendingCount }: { newsCount: n
 const NewsForm = ({
   initialData,
   onSave,
-  onCancel
+  onCancel,
+  user
 }: {
   initialData?: NewsItem | null,
   onSave: (data: Omit<NewsItem, 'id' | 'timestamp'>) => void,
-  onCancel: () => void
+  onCancel: () => void,
+  user: any
 }) => {
+  const isSubAdmin = user?.role === 'sub_admin';
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     description: initialData?.description || '',
-    area: initialData?.area || '',
+    area: initialData?.area || (isSubAdmin ? user.district : ''),
     type: initialData?.type || 'Others' as NewsType,
     isBreaking: initialData?.isBreaking || false,
     liveLink: initialData?.liveLink || '',
     imageUrl: initialData?.imageUrl || '',
-    videoUrl: initialData?.videoUrl || ''
+    videoUrl: initialData?.videoUrl || '',
+    author: initialData?.author || user?.name || 'Admin',
+    status: initialData?.status || (isSubAdmin ? 'pending' : 'published')
   });
 
   const newsTypes: NewsType[] = ['Political', 'Accident', 'Education', 'Crime', 'Weather', 'Sports', 'Business', 'Social', 'Others'];
@@ -971,10 +1334,10 @@ const NewsForm = ({
       console.error("NewsForm Upload Error:", error);
       if (error.message && error.message.includes("Bucket not found")) {
         toast.error("CRITICAL: 'news-media' bucket missing! Check INSTRUCTIONS_TO_FIX_UPLOAD.md");
-        window.open('https://supabase.com/dashboard/project/vgokxvelxjgsfoitayyw/storage/buckets', '_blank');
+        window.open('https://dash.cloudflare.com/', '_blank');
       } else if (error.message && error.message.includes("row-level security")) {
         toast.error("PERMISSION DENIED: You need to add a proper Policy to the 'news-media' bucket. See INSTRUCTIONS.");
-        window.open('https://supabase.com/dashboard/project/vgokxvelxjgsfoitayyw/storage/buckets', '_blank');
+        window.open('https://dash.cloudflare.com/', '_blank');
       } else {
         toast.error('Upload failed: ' + (error.message || 'Check storage bucket permissions'));
       }
@@ -990,7 +1353,23 @@ const NewsForm = ({
       toast.error('Please fill in all required fields');
       return;
     }
-    onSave(formData);
+
+    // Live Link Validation
+    let finalLiveLink = formData.liveLink?.trim() || '';
+    if (finalLiveLink) {
+      if (!finalLiveLink.startsWith('http://') && !finalLiveLink.startsWith('https://')) {
+        finalLiveLink = 'https://' + finalLiveLink;
+      }
+
+      try {
+        new URL(finalLiveLink);
+      } catch (_) {
+        toast.error('Please enter a valid Live Link URL');
+        return;
+      }
+    }
+
+    onSave({ ...formData, liveLink: finalLiveLink });
   };
 
   return (
@@ -1076,8 +1455,9 @@ const NewsForm = ({
                     type="text"
                     value={formData.area}
                     onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500"
+                    className={`w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 ${isSubAdmin ? 'opacity-70 cursor-not-allowed' : ''}`}
                     placeholder="e.g. Vijayawada, Hyderabad"
+                    disabled={isSubAdmin}
                   />
                 </div>
 
@@ -1104,7 +1484,7 @@ const NewsForm = ({
                     <Cast size={16} className="text-slate-500" />
                   </div>
                   <input
-                    type="url"
+                    type="text"
                     value={formData.liveLink}
                     onChange={(e) => setFormData({ ...formData, liveLink: e.target.value })}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500"
@@ -1156,7 +1536,7 @@ const NewsForm = ({
                             onError={(e) => {
                               console.error("Image failed to load:", formData.imageUrl);
                               e.currentTarget.src = 'https://placehold.co/600x400?text=Load+Error';
-                              toast.error("Image uploaded but failed to load. Check if 'media' bucket is Public.");
+                              toast.error("Image uploaded but failed to display correctly. Using local server fallback if R2 DNS is not configured.");
                             }}
                           />
                           <button
@@ -1209,7 +1589,7 @@ const NewsForm = ({
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">Supports JPG, PNG and MP4 formats. Require 'media' bucket in Supabase.</p>
+                <p className="text-xs text-slate-500">Supports JPG, PNG and MP4 formats. Require 'media' bucket in Cloudflare R2.</p>
               </div>
             </div>
           </form>
@@ -1236,7 +1616,7 @@ const NewsForm = ({
   );
 };
 
-const NewsManager = ({ news, setNews, onViewItem }: { news: NewsItem[], setNews: React.Dispatch<React.SetStateAction<NewsItem[]>>, onViewItem: (item: NewsItem) => void }) => {
+const NewsManager = ({ news, setNews, onViewItem, user }: { news: NewsItem[], setNews: React.Dispatch<React.SetStateAction<NewsItem[]>>, onViewItem: (item: NewsItem) => void, user: any }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<NewsItem | null>(null);
   const [filterType, setFilterType] = useState<string>('All');
@@ -1382,6 +1762,36 @@ const NewsManager = ({ news, setNews, onViewItem }: { news: NewsItem[], setNews:
     }
   };
 
+  const [isArchiving, setIsArchiving] = useState(false);
+  const handleArchiveAndWipe = async () => {
+    if (confirm('Do you want to download a backup of all news articles to your PC?')) {
+      setIsArchiving(true);
+      try {
+        await api.archiveNews();
+
+        // Let the download start, wait a tiny bit to avoid overlapping prompts
+        setTimeout(async () => {
+          if (confirm('Backup downloaded successfully! Do you want to WIPE all news from the database now? WARNING: This is permanent!')) {
+            try {
+              await api.wipeAllNews();
+              toast.success('Database wiped successfully.');
+              setNews([]);
+            } catch (err) {
+              toast.error('Failed to wipe the database.');
+              console.error(err);
+            }
+          }
+        }, 500);
+
+      } catch (error) {
+        toast.error('Failed to archive the news.');
+        console.error(error);
+      } finally {
+        setIsArchiving(false);
+      }
+    }
+  };
+
   const handleSave = async (data: Omit<NewsItem, 'id' | 'timestamp'>) => {
     try {
       if (editingItem) {
@@ -1425,13 +1835,30 @@ const NewsManager = ({ news, setNews, onViewItem }: { news: NewsItem[], setNews:
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-white">Manage News</h2>
-        <button
-          onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
-          className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-4 py-2 rounded-lg font-bold transition-all"
-        >
-          <Plus size={20} />
-          <span>Upload News</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {user?.role === 'super_admin' && (
+            <button
+              onClick={handleArchiveAndWipe}
+              disabled={isArchiving || news.length === 0}
+              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-lg font-bold transition-all disabled:opacity-50"
+              title="Download Archive & Delete All News"
+            >
+              {isArchiving ? (
+                <span className="animate-spin h-5 w-5 border-2 border-red-500 border-t-transparent rounded-full"></span>
+              ) : (
+                <Database size={20} />
+              )}
+              <span className="hidden sm:inline">Backup & Wipe</span>
+            </button>
+          )}
+          <button
+            onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+            className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-4 py-2 rounded-lg font-bold transition-all"
+          >
+            <Plus size={20} />
+            <span>Upload News</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 bg-slate-800 p-4 rounded-xl border border-slate-700">
@@ -1648,6 +2075,7 @@ const NewsManager = ({ news, setNews, onViewItem }: { news: NewsItem[], setNews:
           initialData={editingItem}
           onSave={handleSave}
           onCancel={() => { setIsFormOpen(false); setEditingItem(null); }}
+          user={user}
         />
       )}
     </div>
@@ -2075,12 +2503,15 @@ const AppPreview = ({ news, shorts, onViewItem }: { news: NewsItem[], shorts: Sh
 const ShortsForm = ({
   initialData,
   onSave,
-  onCancel
+  onCancel,
+  user
 }: {
   initialData?: ShortItem | null,
   onSave: (data: Omit<ShortItem, 'id' | 'timestamp'>) => void,
-  onCancel: () => void
+  onCancel: () => void,
+  user: any
 }) => {
+  const isSubAdmin = user?.role === 'sub_admin';
   const [title, setTitle] = useState(initialData?.title || '');
   const [duration, setDuration] = useState(initialData?.duration || 0); // Simulated duration
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -2125,7 +2556,9 @@ const ShortsForm = ({
       onSave({
         title,
         videoUrl,
-        duration: finalDuration || 15
+        duration: finalDuration || 15,
+        area: user?.district || '',
+        author: user?.name || 'Admin'
       });
     } catch (error: any) {
       console.error("Shorts Upload Error:", error);
@@ -2220,7 +2653,7 @@ const ShortsForm = ({
   );
 };
 
-const ShortsManager = ({ shorts, setShorts, onViewItem }: { shorts: ShortItem[], setShorts: React.Dispatch<React.SetStateAction<ShortItem[]>>, onViewItem: (item: ShortItem) => void }) => {
+const ShortsManager = ({ shorts, setShorts, onViewItem, user }: { shorts: ShortItem[], setShorts: React.Dispatch<React.SetStateAction<ShortItem[]>>, onViewItem: (item: ShortItem) => void, user: any }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ShortItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -2425,6 +2858,7 @@ const ShortsManager = ({ shorts, setShorts, onViewItem }: { shorts: ShortItem[],
           initialData={editingItem}
           onSave={handleSave}
           onCancel={() => { setIsFormOpen(false); setEditingItem(null); }}
+          user={user}
         />
       )}
     </div>
@@ -2607,6 +3041,7 @@ import splashImage from './assets/splash_v2.jpg';
 export default function App() {
   const { playingId, handleSpeak } = useTextToSpeech();
   const [showSplash, setShowSplash] = useState(true);
+  const [adminUser, setAdminUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [viewingMedia, setViewingMedia] = useState<NewsItem | ShortItem | null>(null);
 
@@ -2617,13 +3052,33 @@ export default function App() {
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // -- Auth Handling --
+  useEffect(() => {
+    const savedUser = localStorage.getItem('adminUser');
+    if (savedUser) {
+      setAdminUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  const handleLogin = (user: any) => {
+    setAdminUser(user);
+    localStorage.setItem('adminUser', JSON.stringify(user));
+  };
+
+  const handleLogout = () => {
+    setAdminUser(null);
+    localStorage.removeItem('adminUser');
+  };
+
   // -- Fetch Data --
   useEffect(() => {
+    if (!adminUser) return;
+
     const fetchData = async () => {
       try {
         const [newsData, shortsData, adsData] = await Promise.all([
-          api.getNews(),
-          api.getShorts(),
+          api.getNews(adminUser.district, adminUser.role),
+          api.getShorts(adminUser.district, adminUser.role),
           api.getAdvertisements()
         ]);
 
@@ -2638,7 +3093,7 @@ export default function App() {
     };
 
     fetchData();
-  }, []);
+  }, [adminUser]);
 
   // -- Advertisement Handlers --
   const handleAddAd = async (ad: Omit<Advertisement, 'id' | 'timestamp'>) => {
@@ -2671,6 +3126,17 @@ export default function App() {
     }
   };
 
+  const handleRemoveBreaking = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await api.updateNews(id, { isBreaking: false });
+      setNews(news.map(n => n.id === id ? { ...n, isBreaking: false } : n));
+      toast.success("Removed from breaking news");
+    } catch (err) {
+      toast.error("Failed to remove from breaking news");
+    }
+  };
+
   // -- Splash Screen Effect --
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -2699,7 +3165,9 @@ export default function App() {
     );
   }
 
-
+  if (!adminUser) {
+    return <LoginView onLogin={handleLogin} />;
+  }
 
   return (
     <div className="flex h-screen bg-[#020617] text-slate-100 font-sans overflow-hidden selection:bg-yellow-500/30">
@@ -2710,6 +3178,8 @@ export default function App() {
         setActiveTab={setActiveTab}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        user={adminUser}
+        onLogout={handleLogout}
       />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -2737,10 +3207,19 @@ export default function App() {
                       <div
                         key={item.id}
                         onClick={() => setViewingMedia(item)}
-                        className="flex items-center gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+                        className="flex items-center gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer group"
                       >
                         <AlertCircle className="text-red-500 flex-shrink-0" size={20} />
-                        <span className="text-white font-medium truncate">{item.title}</span>
+                        <span className="text-white font-medium truncate flex-1">{item.title}</span>
+                        {adminUser?.role === 'super_admin' && (
+                          <button
+                            onClick={(e) => handleRemoveBreaking(e, item.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all"
+                            title="Remove from breaking"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
                       </div>
                     ))}
                     {news.filter(n => n.isBreaking).length === 0 && (
@@ -2839,26 +3318,30 @@ export default function App() {
             )}
 
             {activeTab === 'news' && (
-              <NewsManager news={news} setNews={setNews} onViewItem={setViewingMedia} />
+              <NewsManager news={news} setNews={setNews} onViewItem={setViewingMedia} user={adminUser} />
             )}
 
-            {activeTab === 'app_preview' && (
+            {activeTab === 'app_preview' && adminUser.role === 'super_admin' && (
               <AppPreview news={news} shorts={shorts} onViewItem={setViewingMedia} />
             )}
 
-            {activeTab === 'approvals' && (
+            {activeTab === 'approvals' && adminUser.role === 'super_admin' && (
               <NewsApprovalManager pendingNews={pendingNews} setPendingNews={setPendingNews} setNews={setNews} />
             )}
 
-            {activeTab === 'analytics' && (
+            {activeTab === 'analytics' && adminUser.role === 'super_admin' && (
               <AnalyticsView news={news} shorts={shorts} />
             )}
 
             {activeTab === 'shorts' && (
-              <ShortsManager shorts={shorts} setShorts={setShorts} onViewItem={setViewingMedia} />
+              <ShortsManager shorts={shorts} setShorts={setShorts} onViewItem={setViewingMedia} user={adminUser} />
             )}
 
-            {activeTab === 'advertisements' && (
+            {activeTab === 'reporters' && adminUser.role === 'super_admin' && (
+              <ReportersManager />
+            )}
+
+            {activeTab === 'advertisements' && adminUser.role === 'super_admin' && (
               <AdvertisementsManager
                 advertisements={advertisements}
                 onAdd={handleAddAd}
@@ -2868,7 +3351,7 @@ export default function App() {
             )}
 
             {activeTab === 'settings' && (
-              <SettingsView />
+              <SettingsView user={adminUser} />
             )}
 
             {viewingMedia && (
