@@ -13,7 +13,7 @@ const puppeteer = require('puppeteer');
 
 const app = express();
 const port = process.env.PORT || 5000;
-const useLocal = process.env.USE_LOCAL === 'true' || true; // Default to true for development
+const useLocal = process.env.USE_LOCAL === 'true'; // Set to false for production / cloud
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
