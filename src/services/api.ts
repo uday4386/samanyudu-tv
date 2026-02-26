@@ -1,6 +1,6 @@
 import { NewsItem, ShortItem, NewsType } from '../types';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://172.16.25.13:5000/api';
 
 export const api = {
     // --- NEWS ---
